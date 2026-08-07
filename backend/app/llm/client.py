@@ -38,7 +38,7 @@ class OpenAICompatibleLLMClient:
 
         payload = {
             "model": self.settings.model,
-            "temperature": 0.4,
+            
             "messages": [
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": user_prompt},
