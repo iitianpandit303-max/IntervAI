@@ -1,9 +1,12 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from app.api.interview import router as interview_router
+
+
 app = FastAPI(
     title="IntervAI API",
-    version="0.1.0",
+    version="0.3.0",
     description="ABTalks AI Cohort adaptive technical interview backend",
 )
 
@@ -14,6 +17,8 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+app.include_router(interview_router)
 
 
 @app.get("/health")
