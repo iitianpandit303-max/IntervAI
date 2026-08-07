@@ -29,6 +29,13 @@ def test_runtime_settings_parse_deployment_cors_origins(monkeypatch: pytest.Monk
     )
 
 
+
+def test_runtime_settings_parse_session_db_path(monkeypatch: pytest.MonkeyPatch, tmp_path) -> None:
+    db_path = tmp_path / "persistent" / "sessions.sqlite3"
+    monkeypatch.setenv("INTERVAI_SESSION_DB_PATH", str(db_path))
+    settings = RuntimeSettings.from_env()
+    assert settings.session_db_path == db_path
+
 def test_health_exposes_runtime_mode_without_secrets(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.delenv("INTERVAI_LLM_BASE_URL", raising=False)
     monkeypatch.delenv("INTERVAI_LLM_API_KEY", raising=False)

@@ -1,3 +1,4 @@
+from app.config.settings import RuntimeSettings
 from app.models.api import InterviewResponse
 from app.models.answer_evaluation import RecommendedAction
 from app.models.candidate import CandidateProfile
@@ -40,7 +41,7 @@ class InterviewOrchestrator:
         memory_manager: MemoryManager | None = None,
         feedback_service: FeedbackService | None = None,
     ) -> None:
-        self.sessions = sessions or SessionRepository()
+        self.sessions = sessions or SessionRepository(RuntimeSettings.from_env().session_db_path)
         self.curriculum = curriculum or CurriculumRepository()
         self.coverage = coverage or CoveragePolicy()
         self.planner = planner or InterviewPlanner(

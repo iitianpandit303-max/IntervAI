@@ -29,6 +29,9 @@ Run this list before submitting or after every deployment change.
 - Transient provider 429/5xx: one bounded retry is allowed by default.
 - SQLite tests pass on Windows with no locked database files.
 - Backend CORS includes the deployed frontend origin.
+- Real LLM configuration passes `python scripts/llm_probe.py` when AI mode is intended.
+- `INTERVAI_SESSION_DB_PATH` points at persistent storage when the host provides it.
+- A single backend worker/instance owns the SQLite session store during evaluation.
 
 ## Final commands
 
@@ -48,3 +51,14 @@ npm run build
 ```
 
 Do not submit until the test suite, live smoke test, and production frontend build all pass.
+
+
+## Release command
+
+After deployment:
+
+```bash
+python scripts/release_check.py --base-url https://YOUR_BACKEND_URL
+```
+
+Then fill every placeholder in `SUBMISSION_TEMPLATE.md` and verify the repository contains no `.env` file or API key before pushing.

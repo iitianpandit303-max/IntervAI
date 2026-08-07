@@ -4,7 +4,7 @@ IntervAI is a modular technical interview agent for the ABTalks AI Cohort.
 
 ## Current milestone
 
-Commits 1–15 establish:
+Commits 1–16 establish:
 - React + Vite frontend skeleton
 - FastAPI backend skeleton
 - supplied curriculum/candidate data loaders
@@ -95,3 +95,8 @@ The React demo now reads presentation-safe interview insights from `GET /api/int
 ## Commit 15 — Judge-proofing and deployment hardening
 
 The evaluator path is now hardened for submission. Non-final `POST /api/interview` responses exclude the optional `feedback` field so they match the supplied start/turn examples exactly, and request validation enforces exactly one of `candidate` or `message`. Deployment CORS origins are environment-driven, `/health` reports whether the API is using a configured LLM or deterministic fallback without exposing secrets, and the OpenAI-compatible client has a bounded retry budget for transient 429/5xx/transport failures while failing fast on full timeouts. JSON parsing can recover a single object from harmless provider preamble text without accepting malformed structures. A contract-level judge simulation now runs all 20 supplied candidate profiles through complete interviews and verifies 8+ questions, 4+ curriculum days, the exact final feedback fields, and the hidden frontend GET remaining absent from OpenAPI. `scripts/judge_smoke_test.py` performs the same critical checks against a live deployment, and deployment/checklist documentation plus a Render backend blueprint are included.
+
+
+## Commit 16 — Production release and submission preparation
+
+The final release milestone adds environment-configurable SQLite storage for deployment, a real-provider structured LLM probe, a one-command release checker, a backend Dockerfile, GitHub Actions CI, AI workflow documentation, a concise demo script, and a submission template. The evaluator POST contract and interview intelligence remain unchanged. Use `python scripts/llm_probe.py` after configuring a real OpenAI-compatible provider, then use `python scripts/release_check.py --base-url <PUBLIC_BACKEND_URL>` for the final tests/build/live smoke-test gate.

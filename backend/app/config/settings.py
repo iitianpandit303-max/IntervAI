@@ -1,5 +1,6 @@
 import os
 from dataclasses import dataclass
+from pathlib import Path
 
 from dotenv import load_dotenv
 
@@ -11,6 +12,8 @@ DEFAULT_CORS_ORIGINS = (
     "http://localhost:5173",
     "http://127.0.0.1:5173",
 )
+ROOT_DIR = Path(__file__).resolve().parents[3]
+DEFAULT_SESSION_DB_PATH = ROOT_DIR / "backend" / "intervai_sessions.db"
 
 
 def _parse_csv(value: str | None) -> tuple[str, ...]:
@@ -24,11 +27,17 @@ class RuntimeSettings:
     """Deployment-facing settings that do not affect evaluator semantics."""
 
     cors_origins: tuple[str, ...] = DEFAULT_CORS_ORIGINS
+    session_db_path: Path = DEFAULT_SESSION_DB_PATH
 
     @classmethod
     def from_env(cls) -> "RuntimeSettings":
         configured = _parse_csv(os.getenv("INTERVAI_CORS_ORIGINS"))
-        return cls(cors_origins=configured or DEFAULT_CORS_ORIGINS)
+        db_raw = os.getenv("INTERVAI_SESSION_DB_PATH", "").strip()
+        db_path = Path(db_raw).expanduser() if db_raw else DEFAULT_SESSION_DB_PATH
+        return cls(
+            cors_origins=configured or DEFAULT_CORS_ORIGINS,
+            session_db_path=db_path,
+        )
 
 
 @dataclass(frozen=True)
