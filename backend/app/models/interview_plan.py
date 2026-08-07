@@ -12,6 +12,7 @@ class QuestionType(str, Enum):
     TRADEOFF = "tradeoff"
     SYSTEM_DESIGN = "system_design"
     FOLLOW_UP = "follow_up"
+    PRESSURE = "pressure"
 
 
 class InterviewPlanSummary(BaseModel):

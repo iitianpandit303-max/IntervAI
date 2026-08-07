@@ -1,4 +1,5 @@
 from app.models.api import FeedbackPayload, InterviewResponse
+from app.models.answer_evaluation import RecommendedAction
 from app.models.candidate import CandidateProfile
 from app.models.session import InterviewSession, InterviewTurn
 from app.repositories.curriculum_repository import CurriculumRepository
@@ -6,6 +7,7 @@ from app.repositories.session_repository import SessionRepository
 from app.services.adaptive_question_generator import AdaptiveQuestionGenerator
 from app.services.answer_evaluator import AnswerEvaluator
 from app.services.interview_planner import InterviewPlanner
+from app.services.pressure_question_generator import PressureQuestionGenerator
 from app.services.question_generator import QuestionGenerator
 from app.strategies.adaptive_policy import AdaptivePolicy
 from app.strategies.coverage_policy import CoveragePolicy
@@ -29,6 +31,7 @@ class InterviewOrchestrator:
         answer_evaluator: AnswerEvaluator | None = None,
         adaptive_policy: AdaptivePolicy | None = None,
         adaptive_question_generator: AdaptiveQuestionGenerator | None = None,
+        pressure_question_generator: PressureQuestionGenerator | None = None,
     ) -> None:
         self.sessions = sessions or SessionRepository()
         self.curriculum = curriculum or CurriculumRepository()
@@ -47,6 +50,10 @@ class InterviewOrchestrator:
         self.adaptive_question_generator = (
             adaptive_question_generator
             or AdaptiveQuestionGenerator(curriculum=self.curriculum)
+        )
+        self.pressure_question_generator = (
+            pressure_question_generator
+            or PressureQuestionGenerator(curriculum=self.curriculum)
         )
 
     def start(self, session_id: str, candidate: CandidateProfile) -> InterviewResponse:
@@ -104,20 +111,33 @@ class InterviewOrchestrator:
             evaluation=evaluation,
         )
         if decision.should_insert_followup:
-            adaptive = self.adaptive_question_generator.generate(
-                candidate=session.candidate,
-                previous=current,
-                answer=cleaned_answer,
-                evaluation=evaluation,
-                action=decision.action,
-                question_id=(
-                    f"{current.question_id}-a{session.adaptive_followups_used + 1}"
-                ),
-            )
-            session.questions.insert(session.current_index, adaptive)
+            if decision.action is RecommendedAction.PRESSURE:
+                followup = self.pressure_question_generator.generate(
+                    candidate=session.candidate,
+                    previous=current,
+                    answer=cleaned_answer,
+                    evaluation=evaluation,
+                    question_id=(
+                        f"{current.question_id}-p{session.pressure_followups_used + 1}"
+                    ),
+                )
+                session.pressure_followups_used += 1
+            else:
+                followup = self.adaptive_question_generator.generate(
+                    candidate=session.candidate,
+                    previous=current,
+                    answer=cleaned_answer,
+                    evaluation=evaluation,
+                    action=decision.action,
+                    question_id=(
+                        f"{current.question_id}-a{session.adaptive_followups_used + 1}"
+                    ),
+                )
+
+            session.questions.insert(session.current_index, followup)
             session.adaptive_followups_used += 1
             self.sessions.save(session)
-            return InterviewResponse(reply=adaptive.text, done=False)
+            return InterviewResponse(reply=followup.text, done=False)
 
         plan_exhausted = session.current_index >= len(session.questions)
         if plan_exhausted:
@@ -141,7 +161,8 @@ class InterviewOrchestrator:
             summary=(
                 f"Interview completed after {status.answered_questions} answered questions "
                 f"covering {status.unique_answered_days} curriculum days. "
-                f"{session.adaptive_followups_used} adaptive follow-up(s) were used."
+                f"{session.adaptive_followups_used} adaptive follow-up(s) were used, "
+                f"including {session.pressure_followups_used} pressure challenge(s)."
             ),
             strengths=["Completed a curriculum-grounded adaptive technical interview."],
             gaps=["Knowledge-map aggregation and final readiness scoring are not added yet."],

@@ -16,14 +16,17 @@ def evaluation(
     action: RecommendedAction,
     confidence: float = 0.9,
     missing: list[str] | None = None,
+    engineering_reasoning: int | None = None,
 ) -> AnswerEvaluation:
     return AnswerEvaluation(
         technical_accuracy=score,
         conceptual_understanding=score,
-        engineering_reasoning=score,
+        engineering_reasoning=(
+            engineering_reasoning if engineering_reasoning is not None else score
+        ),
         implementation_depth=score,
         communication_clarity=score,
-        strong_points=[],
+        strong_points=["Defended an engineering choice."],
         missing_concepts=missing or [],
         misconceptions=[],
         recommended_action=action,
@@ -73,12 +76,42 @@ def test_partial_answer_probes_specific_gap() -> None:
     assert decision.should_insert_followup is True
 
 
-def test_pressure_is_reserved_and_normalized_to_deepen() -> None:
+def test_strong_high_confidence_pressure_signal_triggers_pressure_mode() -> None:
     session, question = session_and_question()
     decision = AdaptivePolicy().decide(
         session=session,
         current=question,
         evaluation=evaluation(score=4, action=RecommendedAction.PRESSURE),
+    )
+    assert decision.action is RecommendedAction.PRESSURE
+    assert decision.should_insert_followup is True
+
+
+def test_pressure_signal_with_insufficient_confidence_deepens_instead() -> None:
+    session, question = session_and_question()
+    decision = AdaptivePolicy().decide(
+        session=session,
+        current=question,
+        evaluation=evaluation(
+            score=4,
+            action=RecommendedAction.PRESSURE,
+            confidence=0.7,
+        ),
+    )
+    assert decision.action is RecommendedAction.DEEPEN
+    assert decision.should_insert_followup is True
+
+
+def test_pressure_signal_with_weak_engineering_reasoning_deepens_instead() -> None:
+    session, question = session_and_question()
+    decision = AdaptivePolicy().decide(
+        session=session,
+        current=question,
+        evaluation=evaluation(
+            score=4,
+            action=RecommendedAction.PRESSURE,
+            engineering_reasoning=2,
+        ),
     )
     assert decision.action is RecommendedAction.DEEPEN
     assert decision.should_insert_followup is True
@@ -105,7 +138,7 @@ def test_followup_budget_prevents_unbounded_interview() -> None:
     decision = AdaptivePolicy().decide(
         session=session,
         current=question,
-        evaluation=evaluation(score=1, action=RecommendedAction.RECOVER),
+        evaluation=evaluation(score=4, action=RecommendedAction.PRESSURE),
     )
     assert decision.action is RecommendedAction.SWITCH
     assert decision.should_insert_followup is False

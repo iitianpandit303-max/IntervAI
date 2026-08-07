@@ -6,6 +6,7 @@ from app.models.answer_evaluation import AnswerEvaluation, RecommendedAction
 from app.models.candidate import CandidateProfile
 from app.models.candidate_intelligence import StartingDifficulty
 from app.models.interview_plan import QuestionType
+from app.models.pressure import PressureChallengeType
 
 
 class QuestionGenerationSource(str, Enum):
@@ -27,6 +28,7 @@ class PlannedQuestion(BaseModel):
     generation_rationale: str | None = None
     adaptive_action: RecommendedAction | None = None
     adaptive_from_question_id: str | None = None
+    pressure_challenge_type: PressureChallengeType | None = None
 
 
 class InterviewTurn(BaseModel):
@@ -43,4 +45,5 @@ class InterviewSession(BaseModel):
     turns: list[InterviewTurn] = Field(default_factory=list)
     current_index: int = 0
     adaptive_followups_used: int = 0
+    pressure_followups_used: int = 0
     done: bool = False

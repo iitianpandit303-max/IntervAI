@@ -31,7 +31,8 @@ Rules:
 - Do not penalize concise answers merely for being concise if they satisfy the question.
 - Keep list items short and evidence-based.
 - A misconception must be an actual incorrect claim, not merely an omitted detail.
-- Use PRESSURE only when there is a concrete engineering decision or assumption worth challenging.
+- Use PRESSURE only when the answer is already strong, demonstrates engineering reasoning, and contains a concrete engineering decision or assumption worth challenging.
+- Do not use PRESSURE for a purely definitional answer that contains no decision to defend.
 - confidence is your confidence in this evaluation from 0.0 to 1.0.
 
 Return JSON only with exactly these fields:
