@@ -1,5 +1,3 @@
-from typing import Any
-
 from pydantic import BaseModel, Field, model_validator
 
 from app.models.candidate import CandidateProfile
@@ -12,8 +10,15 @@ class InterviewRequest(BaseModel):
 
     @model_validator(mode="after")
     def validate_turn_shape(self) -> "InterviewRequest":
-        if self.candidate is None and self.message is None:
-            raise ValueError("Provide candidate to start, or message to continue an interview.")
+        has_candidate = self.candidate is not None
+        has_message = self.message is not None
+        if has_candidate == has_message:
+            raise ValueError(
+                "Provide exactly one of candidate (start) or message (conversation turn)."
+            )
+        if not self.sessionId.strip():
+            raise ValueError("sessionId must contain a non-whitespace value.")
+        self.sessionId = self.sessionId.strip()
         return self
 
 

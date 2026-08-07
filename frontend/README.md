@@ -19,7 +19,7 @@ npm run dev
 
 The frontend expects the FastAPI backend on port `8000` by default.
 
-## Commit 13 scope
+## Current scope
 
 - Supplied candidate profile selector
 - Interview session initialization
@@ -27,6 +27,8 @@ The frontend expects the FastAPI backend on port `8000` by default.
 - 8-question minimum progress indicator
 - Loading and error handling
 - Heuristic Pressure Mode visual state without changing the evaluator API contract
-- Minimal completion state
+- Full Interview Readiness Report completion dashboard
+- Live seven-domain Candidate Knowledge Map
+- Current curriculum day, question type, difficulty, and Pressure Mode metadata
 
-The full Knowledge Map and Interview Readiness Report visualization are intentionally deferred to Commit 14.
+For production, set `VITE_API_BASE_URL` to the deployed FastAPI origin before running `npm run build`. See `../docs/DEPLOYMENT.md`.

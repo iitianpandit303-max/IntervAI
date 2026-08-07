@@ -35,7 +35,7 @@ def test_exact_start_and_conversation_contract() -> None:
     )
     assert response.status_code == 200
     assert response.json()["done"] is False
-    assert "reply" in response.json()
+    assert set(response.json().keys()) == {"reply", "done"}
 
     for index in range(8):
         response = client.post(

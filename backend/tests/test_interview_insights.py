@@ -59,7 +59,7 @@ def test_hidden_get_view_exposes_live_knowledge_map_without_changing_post_contra
         json={"sessionId": "ui-live", "candidate": candidate.model_dump()},
     )
     assert started.status_code == 200
-    assert set(started.json().keys()) == {"reply", "done", "feedback"}
+    assert set(started.json().keys()) == {"reply", "done"}
 
     view = client.get("/api/interview", params={"sessionId": "ui-live"})
     assert view.status_code == 200

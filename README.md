@@ -4,7 +4,7 @@ IntervAI is a modular technical interview agent for the ABTalks AI Cohort.
 
 ## Current milestone
 
-Commits 1–12 establish:
+Commits 1–15 establish:
 - React + Vite frontend skeleton
 - FastAPI backend skeleton
 - supplied curriculum/candidate data loaders
@@ -18,6 +18,9 @@ Commits 1–12 establish:
 - dynamic Candidate Knowledge Map with profile priors, interview evidence, confidence and topic-level mastery
 - bounded structured interview memory with recent turns, rolling summary, strengths, open gaps and misconceptions
 - deterministic Interview Readiness Report with overall readiness, rubric dimensions, strongest/weakest topics, revisit days, struggled questions and actionable next steps
+- conversational React interview room using the exact evaluator POST contract
+- live Knowledge Map and rich readiness dashboard through a hidden presentation-safe GET view
+- judge-proof runtime hardening: strict request/response shapes, configurable CORS, bounded LLM retries and deployment smoke tests
 
 ## Run backend
 
@@ -87,3 +90,8 @@ The frontend now provides the full candidate-to-interview flow using the existin
 ## Commit 14 — Visual Knowledge Map and Readiness UI
 
 The React demo now reads presentation-safe interview insights from `GET /api/interview?sessionId=...` while the required evaluator contract remains unchanged on `POST /api/interview`. The GET companion route is hidden from OpenAPI and exposes only live progress, the Candidate Knowledge Map, current-question metadata, and the persisted final readiness report.
+
+
+## Commit 15 — Judge-proofing and deployment hardening
+
+The evaluator path is now hardened for submission. Non-final `POST /api/interview` responses exclude the optional `feedback` field so they match the supplied start/turn examples exactly, and request validation enforces exactly one of `candidate` or `message`. Deployment CORS origins are environment-driven, `/health` reports whether the API is using a configured LLM or deterministic fallback without exposing secrets, and the OpenAI-compatible client has a bounded retry budget for transient 429/5xx/transport failures while failing fast on full timeouts. JSON parsing can recover a single object from harmless provider preamble text without accepting malformed structures. A contract-level judge simulation now runs all 20 supplied candidate profiles through complete interviews and verifies 8+ questions, 4+ curriculum days, the exact final feedback fields, and the hidden frontend GET remaining absent from OpenAPI. `scripts/judge_smoke_test.py` performs the same critical checks against a live deployment, and deployment/checklist documentation plus a Render backend blueprint are included.

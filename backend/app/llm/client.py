@@ -20,8 +20,9 @@ class LLMClient(Protocol):
 class OpenAICompatibleLLMClient:
     """Small provider-neutral client for OpenAI-compatible chat-completions APIs.
 
-    We intentionally use HTTP directly instead of a provider SDK so the rest of
-    the interview engine is not coupled to a specific vendor during the hackathon.
+    The interview engine remains provider independent. This client has a tiny,
+    bounded retry budget for transient transport/429/5xx failures and falls back
+    quickly on timeouts so a provider outage does not stall the evaluator.
     """
 
     def __init__(self, settings: LLMSettings | None = None) -> None:
@@ -44,29 +45,65 @@ class OpenAICompatibleLLMClient:
             ],
         }
 
-        try:
-            response = httpx.post(
-                f"{self.settings.base_url}/chat/completions",
-                headers={
-                    "Authorization": f"Bearer {self.settings.api_key}",
-                    "Content-Type": "application/json",
-                },
-                json=payload,
-                timeout=self.settings.timeout_seconds,
-            )
-            response.raise_for_status()
-            body = response.json()
-            content = body["choices"][0]["message"]["content"]
-        except (httpx.HTTPError, KeyError, IndexError, TypeError, ValueError) as exc:
-            raise LLMClientError("llm_request_failed") from exc
+        attempts = self.settings.max_retries + 1
+        last_error: Exception | None = None
 
+        for attempt in range(attempts):
+            try:
+                response = httpx.post(
+                    f"{self.settings.base_url}/chat/completions",
+                    headers={
+                        "Authorization": f"Bearer {self.settings.api_key}",
+                        "Content-Type": "application/json",
+                    },
+                    json=payload,
+                    timeout=self.settings.timeout_seconds,
+                )
+                response.raise_for_status()
+                body = response.json()
+                content = body["choices"][0]["message"]["content"]
+                return self._parse_content(content)
+            except httpx.TimeoutException as exc:
+                # Do not retry a full timeout: deterministic fallback is safer
+                # than doubling judge latency.
+                raise LLMClientError("llm_request_timed_out") from exc
+            except httpx.HTTPStatusError as exc:
+                last_error = exc
+                status = exc.response.status_code
+                retryable = status == 429 or status >= 500
+                if retryable and attempt < attempts - 1:
+                    continue
+                raise LLMClientError("llm_request_failed") from exc
+            except httpx.TransportError as exc:
+                last_error = exc
+                if attempt < attempts - 1:
+                    continue
+                raise LLMClientError("llm_request_failed") from exc
+            except (KeyError, IndexError, TypeError, ValueError) as exc:
+                raise LLMClientError("llm_content_missing") from exc
+
+        raise LLMClientError("llm_request_failed") from last_error
+
+    @classmethod
+    def _parse_content(cls, content: Any) -> dict[str, Any]:
         if not isinstance(content, str):
             raise LLMClientError("llm_content_missing")
 
+        text = cls._strip_code_fence(content)
         try:
-            parsed = json.loads(self._strip_code_fence(content))
-        except json.JSONDecodeError as exc:
-            raise LLMClientError("llm_invalid_json") from exc
+            parsed = json.loads(text)
+        except json.JSONDecodeError:
+            # Some OpenAI-compatible providers occasionally prepend a short
+            # sentence despite a JSON-only prompt. Recover a single JSON object
+            # when it is unambiguous; otherwise fall back safely.
+            first = text.find("{")
+            last = text.rfind("}")
+            if first < 0 or last <= first:
+                raise LLMClientError("llm_invalid_json")
+            try:
+                parsed = json.loads(text[first : last + 1])
+            except json.JSONDecodeError as exc:
+                raise LLMClientError("llm_invalid_json") from exc
 
         if not isinstance(parsed, dict):
             raise LLMClientError("llm_json_not_object")

@@ -19,7 +19,11 @@ def interview_insights(sessionId: str) -> InterviewInsightsResponse:
         raise
 
 
-@router.post("/api/interview", response_model=InterviewResponse)
+@router.post(
+    "/api/interview",
+    response_model=InterviewResponse,
+    response_model_exclude_none=True,
+)
 def interview(payload: InterviewRequest) -> InterviewResponse:
     if payload.candidate is not None:
         try:

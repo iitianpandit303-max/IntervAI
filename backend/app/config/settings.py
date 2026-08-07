@@ -7,6 +7,30 @@ from dotenv import load_dotenv
 load_dotenv()
 
 
+DEFAULT_CORS_ORIGINS = (
+    "http://localhost:5173",
+    "http://127.0.0.1:5173",
+)
+
+
+def _parse_csv(value: str | None) -> tuple[str, ...]:
+    if not value:
+        return ()
+    return tuple(item.strip().rstrip("/") for item in value.split(",") if item.strip())
+
+
+@dataclass(frozen=True)
+class RuntimeSettings:
+    """Deployment-facing settings that do not affect evaluator semantics."""
+
+    cors_origins: tuple[str, ...] = DEFAULT_CORS_ORIGINS
+
+    @classmethod
+    def from_env(cls) -> "RuntimeSettings":
+        configured = _parse_csv(os.getenv("INTERVAI_CORS_ORIGINS"))
+        return cls(cors_origins=configured or DEFAULT_CORS_ORIGINS)
+
+
 @dataclass(frozen=True)
 class LLMSettings:
     """Environment-driven configuration for an OpenAI-compatible chat API."""
@@ -15,6 +39,7 @@ class LLMSettings:
     api_key: str = ""
     model: str = ""
     timeout_seconds: float = 20.0
+    max_retries: int = 1
 
     @property
     def enabled(self) -> bool:
@@ -23,14 +48,24 @@ class LLMSettings:
     @classmethod
     def from_env(cls) -> "LLMSettings":
         timeout_raw = os.getenv("INTERVAI_LLM_TIMEOUT_SECONDS", "20")
+        retries_raw = os.getenv("INTERVAI_LLM_MAX_RETRIES", "1")
+
         try:
             timeout = float(timeout_raw)
         except ValueError:
             timeout = 20.0
+
+        try:
+            retries = int(retries_raw)
+        except ValueError:
+            retries = 1
 
         return cls(
             base_url=os.getenv("INTERVAI_LLM_BASE_URL", "").rstrip("/"),
             api_key=os.getenv("INTERVAI_LLM_API_KEY", ""),
             model=os.getenv("INTERVAI_LLM_MODEL", ""),
             timeout_seconds=max(1.0, timeout),
+            # A bounded retry budget prevents a transient 5xx from ruining a turn
+            # without allowing provider outages to multiply judge latency.
+            max_retries=min(2, max(0, retries)),
         )
