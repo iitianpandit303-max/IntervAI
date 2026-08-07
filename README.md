@@ -78,3 +78,7 @@ IntervAI now separates the full persisted transcript from the compact context se
 ## Commit 12 — Interview Readiness Report
 
 At completion, IntervAI now aggregates the full interview into a persistent rich report. Reliable answer evaluations drive technical accuracy, conceptual understanding, engineering reasoning, communication quality and answer depth scores; the Candidate Knowledge Map contributes topic mastery; weak answers, missing concepts and misconceptions identify struggled questions and curriculum days to revisit. Candidate-history failed/skipped days can appear as secondary revision signals but are never treated as live interview failures. The report stores overall score, readiness level, report confidence, strongest/weakest topics, topics to revise, revisit days, struggled questions and suggested preparation steps. The evaluator-facing response remains contract-safe and returns only `summary`, `strengths`, `gaps`, and `next`. Final aggregation is deterministic and ignores `confidence=0` fallback evaluations, so provider outages cannot fabricate readiness evidence.
+
+## Commit 13 — React Interview Room
+
+The frontend now provides the full candidate-to-interview flow using the existing `POST /api/interview` contract: supplied candidate selection, conversational messages, question progress, loading/error states, a lightweight Pressure Mode visual signal, and an interview-complete handoff. No additional frontend framework or evaluator-facing API fields were introduced.

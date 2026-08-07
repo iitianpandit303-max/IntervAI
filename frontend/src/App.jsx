@@ -1,17 +1,31 @@
-import React from 'react'
+import CandidateSelect from './pages/CandidateSelect'
+import InterviewComplete from './pages/InterviewComplete'
+import InterviewRoom from './pages/InterviewRoom'
+import { useInterview } from './hooks/useInterview'
 
 export default function App() {
+  const interview = useInterview()
+
+  if (interview.status === 'complete' && interview.candidate) {
+    return (
+      <InterviewComplete
+        candidate={interview.candidate}
+        feedback={interview.feedback}
+        questionCount={interview.questionCount}
+        onReset={interview.resetInterview}
+      />
+    )
+  }
+
+  if (interview.candidate && interview.status !== 'idle') {
+    return <InterviewRoom interview={interview} />
+  }
+
   return (
-    <main className="shell">
-      <section className="card">
-        <p className="eyebrow">ABTalks AI Cohort</p>
-        <h1>IntervAI</h1>
-        <p>
-          Adaptive technical interviewer. The interface will be connected to the
-          interview API in a later feature commit.
-        </p>
-        <span className="status">Foundation ready</span>
-      </section>
-    </main>
+    <CandidateSelect
+      onStart={interview.startInterview}
+      busy={interview.status === 'loading'}
+      error={interview.error}
+    />
   )
 }
