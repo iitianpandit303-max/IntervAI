@@ -1,4 +1,4 @@
-from app.models.api import FeedbackPayload, InterviewResponse
+from app.models.api import InterviewResponse
 from app.models.answer_evaluation import RecommendedAction
 from app.models.candidate import CandidateProfile
 from app.models.session import InterviewSession, InterviewTurn
@@ -6,6 +6,7 @@ from app.repositories.curriculum_repository import CurriculumRepository
 from app.repositories.session_repository import SessionRepository
 from app.services.adaptive_question_generator import AdaptiveQuestionGenerator
 from app.services.answer_evaluator import AnswerEvaluator
+from app.services.feedback_service import FeedbackService
 from app.services.interview_planner import InterviewPlanner
 from app.services.knowledge_map import KnowledgeMapService
 from app.services.memory_manager import MemoryManager
@@ -36,6 +37,7 @@ class InterviewOrchestrator:
         pressure_question_generator: PressureQuestionGenerator | None = None,
         knowledge_map_service: KnowledgeMapService | None = None,
         memory_manager: MemoryManager | None = None,
+        feedback_service: FeedbackService | None = None,
     ) -> None:
         self.sessions = sessions or SessionRepository()
         self.curriculum = curriculum or CurriculumRepository()
@@ -61,6 +63,10 @@ class InterviewOrchestrator:
         )
         self.knowledge_map_service = knowledge_map_service or KnowledgeMapService()
         self.memory_manager = memory_manager or MemoryManager()
+        self.feedback_service = feedback_service or FeedbackService(
+            curriculum=self.curriculum,
+            coverage=self.coverage,
+        )
 
     def start(self, session_id: str, candidate: CandidateProfile) -> InterviewResponse:
         if self.sessions.exists(session_id):
@@ -195,16 +201,8 @@ class InterviewOrchestrator:
         return InterviewResponse(reply=next_question.text, done=False)
 
     def _completed_response(self, session: InterviewSession) -> InterviewResponse:
-        status = self.coverage.status(session)
-        feedback = FeedbackPayload(
-            summary=(
-                f"Interview completed after {status.answered_questions} answered questions "
-                f"covering {status.unique_answered_days} curriculum days. "
-                f"{session.adaptive_followups_used} adaptive follow-up(s) were used, "
-                f"including {session.pressure_followups_used} pressure challenge(s)."
-            ),
-            strengths=["Completed a curriculum-grounded adaptive technical interview with a dynamic knowledge map."],
-            gaps=["Final readiness-report aggregation is not added yet."],
-            next=["Use the stored knowledge map and answer evaluations to generate the final readiness report."],
-        )
+        if session.final_report is None:
+            session.final_report = self.feedback_service.build_report(session)
+            self.sessions.save(session)
+        feedback = self.feedback_service.to_api_feedback(session.final_report)
         return InterviewResponse(reply="Interview completed.", done=True, feedback=feedback)

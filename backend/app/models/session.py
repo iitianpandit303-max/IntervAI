@@ -9,6 +9,7 @@ from app.models.interview_plan import QuestionType
 from app.models.interview_memory import InterviewMemory
 from app.models.knowledge_map import CandidateKnowledgeMap
 from app.models.pressure import PressureChallengeType
+from app.models.readiness_report import InterviewReadinessReport
 
 
 class QuestionGenerationSource(str, Enum):
@@ -50,4 +51,5 @@ class InterviewSession(BaseModel):
     pressure_followups_used: int = 0
     knowledge_map: CandidateKnowledgeMap | None = None
     memory: InterviewMemory | None = None
+    final_report: InterviewReadinessReport | None = None
     done: bool = False

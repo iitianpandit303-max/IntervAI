@@ -4,7 +4,7 @@ IntervAI is a modular technical interview agent for the ABTalks AI Cohort.
 
 ## Current milestone
 
-Commits 1–11 establish:
+Commits 1–12 establish:
 - React + Vite frontend skeleton
 - FastAPI backend skeleton
 - supplied curriculum/candidate data loaders
@@ -17,8 +17,7 @@ Commits 1–11 establish:
 - selective Pressure Mode for strong engineering answers
 - dynamic Candidate Knowledge Map with profile priors, interview evidence, confidence and topic-level mastery
 - bounded structured interview memory with recent turns, rolling summary, strengths, open gaps and misconceptions
-
-The final readiness report remains a separate upcoming milestone.
+- deterministic Interview Readiness Report with overall readiness, rubric dimensions, strongest/weakest topics, revisit days, struggled questions and actionable next steps
 
 ## Run backend
 
@@ -74,3 +73,8 @@ IntervAI now maintains a persistent mastery map for RAG, Vector Databases, Promp
 ## Commit 11 — Structured interview memory & context
 
 IntervAI now separates the full persisted transcript from the compact context sent to the LLM. `InterviewSession.turns` remains the complete source of truth in SQLite, while a bounded `InterviewMemory` stores the last four turns, a deterministic rolling summary, observed strengths, unresolved gaps, misconceptions and curriculum days discussed. The Memory Manager also renders a compact Knowledge Map snapshot for question-generation context. Reliable evaluations update memory; `confidence=0` fallback evaluations never become remembered candidate evidence. Strong later evidence on the same curriculum day can close earlier same-day gaps. The memory context is supplied to planned-question generation, adaptive follow-ups, Pressure Mode and answer evaluation, allowing cross-turn references without sending an ever-growing raw transcript. Memory summarization is deterministic in this milestone, so it adds no extra LLM call per turn.
+
+
+## Commit 12 — Interview Readiness Report
+
+At completion, IntervAI now aggregates the full interview into a persistent rich report. Reliable answer evaluations drive technical accuracy, conceptual understanding, engineering reasoning, communication quality and answer depth scores; the Candidate Knowledge Map contributes topic mastery; weak answers, missing concepts and misconceptions identify struggled questions and curriculum days to revisit. Candidate-history failed/skipped days can appear as secondary revision signals but are never treated as live interview failures. The report stores overall score, readiness level, report confidence, strongest/weakest topics, topics to revise, revisit days, struggled questions and suggested preparation steps. The evaluator-facing response remains contract-safe and returns only `summary`, `strengths`, `gaps`, and `next`. Final aggregation is deterministic and ignores `confidence=0` fallback evaluations, so provider outages cannot fabricate readiness evidence.
