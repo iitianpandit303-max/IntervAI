@@ -2,6 +2,7 @@ from enum import Enum
 
 from pydantic import BaseModel, Field
 
+from app.models.answer_evaluation import AnswerEvaluation
 from app.models.candidate import CandidateProfile
 from app.models.candidate_intelligence import StartingDifficulty
 from app.models.interview_plan import QuestionType
@@ -30,6 +31,7 @@ class InterviewTurn(BaseModel):
     question_id: str
     question: str
     answer: str
+    evaluation: AnswerEvaluation | None = None
 
 
 class InterviewSession(BaseModel):

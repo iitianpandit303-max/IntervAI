@@ -3,6 +3,7 @@ from app.models.candidate import CandidateProfile
 from app.models.session import InterviewSession, InterviewTurn
 from app.repositories.curriculum_repository import CurriculumRepository
 from app.repositories.session_repository import SessionRepository
+from app.services.answer_evaluator import AnswerEvaluator
 from app.services.interview_planner import InterviewPlanner
 from app.services.question_generator import QuestionGenerator
 from app.strategies.coverage_policy import CoveragePolicy
@@ -22,6 +23,7 @@ class InterviewOrchestrator:
         planner: InterviewPlanner | None = None,
         coverage: CoveragePolicy | None = None,
         question_generator: QuestionGenerator | None = None,
+        answer_evaluator: AnswerEvaluator | None = None,
     ) -> None:
         self.sessions = sessions or SessionRepository()
         self.curriculum = curriculum or CurriculumRepository()
@@ -31,6 +33,9 @@ class InterviewOrchestrator:
             coverage=self.coverage,
         )
         self.question_generator = question_generator or QuestionGenerator(
+            curriculum=self.curriculum
+        )
+        self.answer_evaluator = answer_evaluator or AnswerEvaluator(
             curriculum=self.curriculum
         )
 
@@ -67,11 +72,18 @@ class InterviewOrchestrator:
             return self._completed_response(session)
 
         current = session.questions[session.current_index]
+        cleaned_answer = message.strip()
+        evaluation = self.answer_evaluator.evaluate(
+            candidate=session.candidate,
+            question=current,
+            answer=cleaned_answer,
+        )
         session.turns.append(
             InterviewTurn(
                 question_id=current.question_id,
                 question=current.text,
-                answer=message.strip(),
+                answer=cleaned_answer,
+                evaluation=evaluation,
             )
         )
         session.current_index += 1
@@ -100,11 +112,11 @@ class InterviewOrchestrator:
         feedback = FeedbackPayload(
             summary=(
                 f"Interview completed after {status.answered_questions} answered questions "
-                f"covering {status.unique_answered_days} curriculum days. Answer scoring and "
-                "adaptive follow-ups are intentionally deferred to the next feature commits."
+                f"covering {status.unique_answered_days} curriculum days. Structured answer "
+                "evaluations were captured for each turn; adaptive follow-ups are deferred."
             ),
             strengths=["Completed the curriculum-aware interview flow."],
-            gaps=["Detailed answer scoring is not enabled in this milestone."],
-            next=["Enable structured LLM evaluation and adaptive follow-up logic."],
+            gaps=["Stored evaluations do not change question selection in this milestone."],
+            next=["Use stored evaluation signals to drive adaptive follow-up logic."],
         )
         return InterviewResponse(reply="Interview completed.", done=True, feedback=feedback)
