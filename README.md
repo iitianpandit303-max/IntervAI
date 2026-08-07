@@ -4,12 +4,14 @@ IntervAI is a modular technical interview agent for the ABTalks AI Cohort.
 
 ## Current milestone
 
-Commits 1–3 establish:
+Commits 1–4 establish:
 - React + Vite frontend skeleton
 - FastAPI backend skeleton
 - supplied curriculum/candidate data loaders
 - exact `POST /api/interview` contract
 - session lifecycle with mocked, curriculum-grounded questions
+- candidate intelligence priors derived from pass/fail/skip/attempt and cohort signals
+- explicit UNKNOWN handling for mission days absent from sparse candidate profiles
 
 LLM integration and adaptive evaluation are intentionally deferred to later commits.
 
