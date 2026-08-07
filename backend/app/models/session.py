@@ -1,8 +1,16 @@
+from enum import Enum
+
 from pydantic import BaseModel, Field
 
 from app.models.candidate import CandidateProfile
 from app.models.candidate_intelligence import StartingDifficulty
 from app.models.interview_plan import QuestionType
+
+
+class QuestionGenerationSource(str, Enum):
+    DETERMINISTIC = "deterministic"
+    LLM = "llm"
+    FALLBACK = "fallback"
 
 
 class PlannedQuestion(BaseModel):
@@ -14,6 +22,8 @@ class PlannedQuestion(BaseModel):
     difficulty: StartingDifficulty = StartingDifficulty.INTERMEDIATE
     purpose: str = "curriculum coverage"
     source_objective: str | None = None
+    generation_source: QuestionGenerationSource = QuestionGenerationSource.DETERMINISTIC
+    generation_rationale: str | None = None
 
 
 class InterviewTurn(BaseModel):

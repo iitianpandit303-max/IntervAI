@@ -1,6 +1,8 @@
 import json
 import sqlite3
+from contextlib import contextmanager
 from pathlib import Path
+from typing import Iterator
 
 from app.models.session import InterviewSession
 
@@ -15,13 +17,28 @@ class SessionRepository:
         self.db_path.parent.mkdir(parents=True, exist_ok=True)
         self._initialize()
 
-    def _connect(self) -> sqlite3.Connection:
+    @contextmanager
+    def _connection(self) -> Iterator[sqlite3.Connection]:
+        """Open a short-lived SQLite connection and always close it.
+
+        sqlite3.Connection's own context manager commits/rolls back but does not
+        close the underlying file handle. Explicit closing is important on
+        Windows, where an open SQLite handle prevents temporary test databases
+        from being deleted.
+        """
         connection = sqlite3.connect(self.db_path)
         connection.row_factory = sqlite3.Row
-        return connection
+        try:
+            yield connection
+            connection.commit()
+        except Exception:
+            connection.rollback()
+            raise
+        finally:
+            connection.close()
 
     def _initialize(self) -> None:
-        with self._connect() as connection:
+        with self._connection() as connection:
             connection.execute(
                 """
                 CREATE TABLE IF NOT EXISTS interview_sessions (
@@ -33,7 +50,7 @@ class SessionRepository:
             )
 
     def exists(self, session_id: str) -> bool:
-        with self._connect() as connection:
+        with self._connection() as connection:
             row = connection.execute(
                 "SELECT 1 FROM interview_sessions WHERE session_id = ?",
                 (session_id,),
@@ -41,7 +58,7 @@ class SessionRepository:
         return row is not None
 
     def get(self, session_id: str) -> InterviewSession | None:
-        with self._connect() as connection:
+        with self._connection() as connection:
             row = connection.execute(
                 "SELECT payload FROM interview_sessions WHERE session_id = ?",
                 (session_id,),
@@ -53,7 +70,7 @@ class SessionRepository:
 
     def save(self, session: InterviewSession) -> None:
         payload = session.model_dump_json()
-        with self._connect() as connection:
+        with self._connection() as connection:
             connection.execute(
                 """
                 INSERT INTO interview_sessions (session_id, payload, updated_at)
@@ -66,7 +83,7 @@ class SessionRepository:
             )
 
     def delete(self, session_id: str) -> None:
-        with self._connect() as connection:
+        with self._connection() as connection:
             connection.execute(
                 "DELETE FROM interview_sessions WHERE session_id = ?",
                 (session_id,),

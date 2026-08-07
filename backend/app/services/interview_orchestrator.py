@@ -4,15 +4,15 @@ from app.models.session import InterviewSession, InterviewTurn
 from app.repositories.curriculum_repository import CurriculumRepository
 from app.repositories.session_repository import SessionRepository
 from app.services.interview_planner import InterviewPlanner
+from app.services.question_generator import QuestionGenerator
 from app.strategies.coverage_policy import CoveragePolicy
 
 
 class InterviewOrchestrator:
-    """Deterministic interview workflow with curriculum-aware planning.
+    """Curriculum-aware workflow with guarded, just-in-time LLM question wording.
 
-    Commit 5 still intentionally contains no LLM. Candidate intelligence now
-    determines the interview plan while CoveragePolicy guarantees the minimum
-    eight answered questions across four curriculum days.
+    Backend policy still owns coverage, day selection, question type and difficulty.
+    The LLM only turns a validated plan slot into natural interviewer language.
     """
 
     def __init__(
@@ -21,6 +21,7 @@ class InterviewOrchestrator:
         curriculum: CurriculumRepository | None = None,
         planner: InterviewPlanner | None = None,
         coverage: CoveragePolicy | None = None,
+        question_generator: QuestionGenerator | None = None,
     ) -> None:
         self.sessions = sessions or SessionRepository()
         self.curriculum = curriculum or CurriculumRepository()
@@ -29,12 +30,19 @@ class InterviewOrchestrator:
             curriculum=self.curriculum,
             coverage=self.coverage,
         )
+        self.question_generator = question_generator or QuestionGenerator(
+            curriculum=self.curriculum
+        )
 
     def start(self, session_id: str, candidate: CandidateProfile) -> InterviewResponse:
         if self.sessions.exists(session_id):
             raise ValueError("session_exists")
 
         questions = self.planner.build_plan(candidate)
+        questions[0] = self.question_generator.materialize(
+            candidate=candidate,
+            planned=questions[0],
+        )
         session = InterviewSession(
             session_id=session_id,
             candidate=candidate,
@@ -79,7 +87,11 @@ class InterviewOrchestrator:
             self.sessions.save(session)
             return self._completed_response(session)
 
-        next_question = session.questions[session.current_index]
+        next_question = self.question_generator.materialize(
+            candidate=session.candidate,
+            planned=session.questions[session.current_index],
+        )
+        session.questions[session.current_index] = next_question
         self.sessions.save(session)
         return InterviewResponse(reply=next_question.text, done=False)
 
