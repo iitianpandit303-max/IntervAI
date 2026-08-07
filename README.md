@@ -4,7 +4,7 @@ IntervAI is a modular technical interview agent for the ABTalks AI Cohort.
 
 ## Current milestone
 
-Commits 1–6 establish:
+Commits 1–8 establish:
 - React + Vite frontend skeleton
 - FastAPI backend skeleton
 - supplied curriculum/candidate data loaders
@@ -12,8 +12,10 @@ Commits 1–6 establish:
 - session lifecycle with mocked, curriculum-grounded questions
 - candidate intelligence priors derived from pass/fail/skip/attempt and cohort signals
 - explicit UNKNOWN handling for mission days absent from sparse candidate profiles
+- structured curriculum-grounded answer evaluation
+- bounded adaptive RECOVER / PROBE / DEEPEN follow-ups
 
-Adaptive answer evaluation is intentionally deferred to later commits.
+Pressure Mode, Candidate Knowledge Map aggregation, and the final readiness report remain separate upcoming milestones.
 
 ## Run backend
 
@@ -51,3 +53,7 @@ Configure an OpenAI-compatible provider with `INTERVAI_LLM_BASE_URL`, `INTERVAI_
 ## Commit 7 — Curriculum-grounded answer evaluation
 
 Every candidate answer is now evaluated against the exact curriculum day, objective, question type, difficulty, and question text that produced it. The evaluator returns a validated 0–4 rubric for technical accuracy, conceptual understanding, engineering reasoning, implementation depth, and communication clarity, plus concise strengths, missing concepts, misconceptions, confidence, and a recommended future action (`RECOVER`, `PROBE`, `DEEPEN`, `PRESSURE`, or `SWITCH`). The evaluation is stored on the interview turn in SQLite. Empty answers are handled deterministically, while unavailable or malformed LLM evaluations produce neutral scores with `confidence=0.0` so later knowledge-map logic can ignore them safely. Commit 7 deliberately does not alter the next-question plan; adaptation is the next milestone.
+
+## Commit 8 — Adaptive interview engine
+
+Stored answer evaluations now affect the next turn. A bounded backend `AdaptivePolicy` normalizes evaluation evidence into `RECOVER`, `PROBE`, `DEEPEN`, or `SWITCH`. Reliable weak answers receive a simpler same-day diagnostic question, partial answers receive a focused probe, and strong answers can receive a deeper engineering follow-up. `PRESSURE` is intentionally normalized to `DEEPEN` until the dedicated Pressure Mode milestone. Adaptive follow-ups are inserted rather than replacing the original eight-question plan, preserving the deterministic four-day coverage guarantee. The engine caps adaptive inserts at two and never chains a follow-up directly from another follow-up. Low-confidence fallback evaluations do not alter the plan. Adaptive questions have their own curriculum-grounded prompt and deterministic fallback, so the behavior still works when no external LLM is configured.

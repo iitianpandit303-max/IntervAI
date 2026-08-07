@@ -32,7 +32,7 @@ class EvaluationFakeLLM:
         }
 
 
-def test_orchestrator_evaluates_and_persists_answer_without_adapting_plan() -> None:
+def test_orchestrator_persists_evaluation_and_uses_it_for_adaptation() -> None:
     if TEST_DB.exists():
         TEST_DB.unlink()
 
@@ -45,7 +45,7 @@ def test_orchestrator_evaluates_and_persists_answer_without_adapting_plan() -> N
     orchestrator.start("evaluation-session", candidate)
     before = sessions.get("evaluation-session")
     assert before is not None
-    originally_planned_second_day = before.questions[1].day
+    original_question_count = len(before.questions)
 
     response = orchestrator.continue_interview(
         "evaluation-session",
@@ -59,9 +59,8 @@ def test_orchestrator_evaluates_and_persists_answer_without_adapting_plan() -> N
     assert stored.turns[0].evaluation is not None
     assert stored.turns[0].evaluation.source is EvaluationSource.LLM
     assert stored.turns[0].evaluation.recommended_action is RecommendedAction.PROBE
-
-    # Commit 7 records the signal but intentionally leaves Commit-5 planning intact.
-    assert stored.questions[1].day == originally_planned_second_day
+    assert len(stored.questions) == original_question_count + 1
+    assert stored.questions[1].adaptive_action is RecommendedAction.PROBE
 
     if TEST_DB.exists():
         TEST_DB.unlink()

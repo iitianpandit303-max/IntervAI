@@ -3,17 +3,20 @@ from app.models.candidate import CandidateProfile
 from app.models.session import InterviewSession, InterviewTurn
 from app.repositories.curriculum_repository import CurriculumRepository
 from app.repositories.session_repository import SessionRepository
+from app.services.adaptive_question_generator import AdaptiveQuestionGenerator
 from app.services.answer_evaluator import AnswerEvaluator
 from app.services.interview_planner import InterviewPlanner
 from app.services.question_generator import QuestionGenerator
+from app.strategies.adaptive_policy import AdaptivePolicy
 from app.strategies.coverage_policy import CoveragePolicy
 
 
 class InterviewOrchestrator:
-    """Curriculum-aware workflow with guarded, just-in-time LLM question wording.
+    """Stateful curriculum-aware interview workflow.
 
-    Backend policy still owns coverage, day selection, question type and difficulty.
-    The LLM only turns a validated plan slot into natural interviewer language.
+    Deterministic backend policy owns coverage and bounds. The LLM evaluates
+    answers and words questions, while AdaptivePolicy decides whether enough
+    reliable evidence exists to insert a same-day follow-up.
     """
 
     def __init__(
@@ -24,6 +27,8 @@ class InterviewOrchestrator:
         coverage: CoveragePolicy | None = None,
         question_generator: QuestionGenerator | None = None,
         answer_evaluator: AnswerEvaluator | None = None,
+        adaptive_policy: AdaptivePolicy | None = None,
+        adaptive_question_generator: AdaptiveQuestionGenerator | None = None,
     ) -> None:
         self.sessions = sessions or SessionRepository()
         self.curriculum = curriculum or CurriculumRepository()
@@ -37,6 +42,11 @@ class InterviewOrchestrator:
         )
         self.answer_evaluator = answer_evaluator or AnswerEvaluator(
             curriculum=self.curriculum
+        )
+        self.adaptive_policy = adaptive_policy or AdaptivePolicy()
+        self.adaptive_question_generator = (
+            adaptive_question_generator
+            or AdaptiveQuestionGenerator(curriculum=self.curriculum)
         )
 
     def start(self, session_id: str, candidate: CandidateProfile) -> InterviewResponse:
@@ -88,12 +98,30 @@ class InterviewOrchestrator:
         )
         session.current_index += 1
 
+        decision = self.adaptive_policy.decide(
+            session=session,
+            current=current,
+            evaluation=evaluation,
+        )
+        if decision.should_insert_followup:
+            adaptive = self.adaptive_question_generator.generate(
+                candidate=session.candidate,
+                previous=current,
+                answer=cleaned_answer,
+                evaluation=evaluation,
+                action=decision.action,
+                question_id=(
+                    f"{current.question_id}-a{session.adaptive_followups_used + 1}"
+                ),
+            )
+            session.questions.insert(session.current_index, adaptive)
+            session.adaptive_followups_used += 1
+            self.sessions.save(session)
+            return InterviewResponse(reply=adaptive.text, done=False)
+
         plan_exhausted = session.current_index >= len(session.questions)
         if plan_exhausted:
             if not self.coverage.can_finish(session):
-                # This should be impossible because InterviewPlanner validates the
-                # plan before a session starts. Keeping the guard here prevents a
-                # future adaptive planner from accidentally violating the contract.
                 raise RuntimeError("interview_coverage_requirements_not_met")
             session.done = True
             self.sessions.save(session)
@@ -112,11 +140,11 @@ class InterviewOrchestrator:
         feedback = FeedbackPayload(
             summary=(
                 f"Interview completed after {status.answered_questions} answered questions "
-                f"covering {status.unique_answered_days} curriculum days. Structured answer "
-                "evaluations were captured for each turn; adaptive follow-ups are deferred."
+                f"covering {status.unique_answered_days} curriculum days. "
+                f"{session.adaptive_followups_used} adaptive follow-up(s) were used."
             ),
-            strengths=["Completed the curriculum-aware interview flow."],
-            gaps=["Stored evaluations do not change question selection in this milestone."],
-            next=["Use stored evaluation signals to drive adaptive follow-up logic."],
+            strengths=["Completed a curriculum-grounded adaptive technical interview."],
+            gaps=["Knowledge-map aggregation and final readiness scoring are not added yet."],
+            next=["Use stored evaluations to update topic mastery and generate the readiness report."],
         )
         return InterviewResponse(reply="Interview completed.", done=True, feedback=feedback)

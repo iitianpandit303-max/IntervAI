@@ -19,9 +19,8 @@ PROMPT_PATH = Path(__file__).resolve().parents[1] / "prompts" / "evaluator.md"
 class AnswerEvaluator:
     """Scores one answer against the exact curriculum evidence for its question.
 
-    Commit 7 records evaluation signals only. It intentionally does not select
-    or rewrite the next question; Commit 8 will consume these signals for
-    adaptive interview behavior.
+    The evaluator records evidence only; AdaptivePolicy consumes the validated
+    result separately so evaluation and interview control remain modular.
     """
 
     def __init__(
