@@ -38,6 +38,7 @@ class AnswerEvaluator:
         candidate: CandidateProfile,
         question: PlannedQuestion,
         answer: str,
+        working_memory: str | None = None,
     ) -> AnswerEvaluation:
         cleaned_answer = answer.strip()
         if not cleaned_answer:
@@ -70,6 +71,8 @@ class AnswerEvaluator:
             f"Question purpose: {question.purpose}\n"
             f"Interviewer question: {question.text}\n\n"
             f"Candidate answer:\n{cleaned_answer}\n\n"
+            f"{working_memory or 'No prior interview context is available yet.'}\n\n"
+            "Use prior context only to resolve explicit references to earlier answers; score the evidence demonstrated in this answer.\n"
             "Evaluate this answer now."
         )
 

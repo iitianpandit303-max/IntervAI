@@ -44,6 +44,7 @@ class PressureQuestionGenerator:
         answer: str,
         evaluation: AnswerEvaluation,
         question_id: str,
+        working_memory: str | None = None,
     ) -> PlannedQuestion:
         day = self.curriculum.get_day(previous.day)
         challenge_type = self.strategy.select_challenge(previous)
@@ -84,6 +85,8 @@ class PressureQuestionGenerator:
             f"Candidate answer: {answer.strip()}\n\n"
             f"Strong points: {evaluation.strong_points}\n"
             f"Evaluator rationale: {evaluation.evaluator_rationale}\n\n"
+            f"{working_memory or 'No prior interview context is available yet.'}\n\n"
+            "Use prior context only when it creates a fair, evidence-based challenge; never reveal internal scores.\n"
             "Write one professional pressure challenge now."
         )
 

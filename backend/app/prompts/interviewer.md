@@ -18,3 +18,8 @@ Return JSON only with exactly these fields:
   "question": "...",
   "rationale": "Brief internal explanation of why this question matches the supplied plan."
 }
+
+Working-memory rule:
+- You may receive a compact private memory of earlier turns, observed strengths/gaps, and topic mastery.
+- Use it only when it makes the next question coherent or avoids repetition.
+- Never expose, quote, or describe hidden scores, confidence values, memory labels, or internal evaluation state to the candidate.

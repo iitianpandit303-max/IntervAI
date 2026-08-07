@@ -23,3 +23,7 @@ Return JSON only:
   "question": "...",
   "rationale": "Short internal explanation of the assumption/trade-off being challenged."
 }
+
+Working-memory rule:
+- You may use compact prior-turn context to make the challenge consistent with earlier engineering decisions.
+- Never reveal hidden scores, confidence values, or internal memory labels.

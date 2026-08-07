@@ -40,6 +40,7 @@ class AdaptiveQuestionGenerator:
         evaluation: AnswerEvaluation,
         action: RecommendedAction,
         question_id: str,
+        working_memory: str | None = None,
     ) -> PlannedQuestion:
         day = self.curriculum.get_day(previous.day)
         difficulty = self._adapt_difficulty(previous.difficulty, action)
@@ -80,6 +81,8 @@ class AdaptiveQuestionGenerator:
             f"Missing concepts: {evaluation.missing_concepts}\n"
             f"Misconceptions: {evaluation.misconceptions}\n"
             f"Evaluator rationale: {evaluation.evaluator_rationale}\n\n"
+            f"{working_memory or 'No prior interview context is available yet.'}\n\n"
+            "Use prior context only if it helps connect this follow-up to something the candidate already demonstrated.\n"
             "Write the adaptive follow-up now."
         )
 

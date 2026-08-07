@@ -49,3 +49,8 @@ Return JSON only with exactly these fields:
   "confidence": 0.0,
   "evaluator_rationale": "..."
 }
+
+Working-memory rule:
+- You may receive compact context from earlier turns.
+- Use it only to resolve explicit references such as “as I said earlier”; do not award credit for knowledge that is only present in an earlier answer when the current question requires new evidence.
+- Never copy hidden scores or internal memory state into candidate-facing text.

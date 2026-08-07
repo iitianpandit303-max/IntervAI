@@ -34,6 +34,7 @@ class QuestionGenerator:
         *,
         candidate: CandidateProfile,
         planned: PlannedQuestion,
+        working_memory: str | None = None,
     ) -> PlannedQuestion:
         if planned.generation_source is not QuestionGenerationSource.DETERMINISTIC:
             return planned
@@ -70,6 +71,8 @@ class QuestionGenerator:
             f"Question type: {planned.question_type.value}\n"
             f"Difficulty: {planned.difficulty.value}\n"
             f"Planner purpose: {planned.purpose}\n\n"
+            f"{working_memory or 'No prior interview context is available yet.'}\n\n"
+            "Use prior context only when it makes the question more coherent; do not reveal internal scores or memory labels.\n"
             "Write the interview question now."
         )
 

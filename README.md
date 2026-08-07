@@ -4,7 +4,7 @@ IntervAI is a modular technical interview agent for the ABTalks AI Cohort.
 
 ## Current milestone
 
-Commits 1–9 establish:
+Commits 1–11 establish:
 - React + Vite frontend skeleton
 - FastAPI backend skeleton
 - supplied curriculum/candidate data loaders
@@ -15,8 +15,10 @@ Commits 1–9 establish:
 - structured curriculum-grounded answer evaluation
 - bounded adaptive RECOVER / PROBE / DEEPEN follow-ups
 - selective Pressure Mode for strong engineering answers
+- dynamic Candidate Knowledge Map with profile priors, interview evidence, confidence and topic-level mastery
+- bounded structured interview memory with recent turns, rolling summary, strengths, open gaps and misconceptions
 
-Candidate Knowledge Map aggregation and the final readiness report remain separate upcoming milestones.
+The final readiness report remains a separate upcoming milestone.
 
 ## Run backend
 
@@ -63,3 +65,12 @@ Stored answer evaluations now affect the next turn. A bounded backend `AdaptiveP
 
 IntervAI can now challenge strong answers instead of simply rewarding them with a harder question. `AdaptivePolicy` permits `PRESSURE` only for high-confidence, high-scoring answers with demonstrated engineering reasoning; weak, partial, or uncertain answers continue through the normal RECOVER / PROBE / DEEPEN paths. A separate `PressureModeStrategy` selects an assumption, alternative, counterfactual, or production-constraint challenge from the original question style, and a dedicated pressure prompt asks the LLM to challenge one concrete decision without becoming argumentative. Pressure questions are marked explicitly in session state and have their own counter. They consume the existing two-follow-up global budget and cannot chain directly from another adaptive question, preserving the original eight-question/four-day coverage plan and keeping the interview bounded at roughly 8–10 questions. If the LLM is unavailable or malformed, a deterministic professional pressure challenge is used instead.
 
+
+## Commit 10 — Candidate Knowledge Map
+
+IntervAI now maintains a persistent mastery map for RAG, Vector Databases, Prompt Engineering, Agentic AI, MCP, Deployment, and Production AI Systems. The map starts from deliberately low-confidence candidate-history priors and is updated after every reliable answer. A curriculum day may update multiple related areas, reflecting the overlap between real AI systems. Technical mastery uses accuracy, conceptual understanding, engineering reasoning, and implementation depth; communication is intentionally kept separate for the later readiness report. Evidence is weighted by evaluator confidence, question type, and difficulty, so a system-design or pressure answer carries more diagnostic value than a basic definition answer. `confidence=0` fallback evaluations never alter mastery. Each topic stores score, confidence, profile evidence, strong evidence, gaps, misconceptions, question count, and the most recent question that changed it.
+
+
+## Commit 11 — Structured interview memory & context
+
+IntervAI now separates the full persisted transcript from the compact context sent to the LLM. `InterviewSession.turns` remains the complete source of truth in SQLite, while a bounded `InterviewMemory` stores the last four turns, a deterministic rolling summary, observed strengths, unresolved gaps, misconceptions and curriculum days discussed. The Memory Manager also renders a compact Knowledge Map snapshot for question-generation context. Reliable evaluations update memory; `confidence=0` fallback evaluations never become remembered candidate evidence. Strong later evidence on the same curriculum day can close earlier same-day gaps. The memory context is supplied to planned-question generation, adaptive follow-ups, Pressure Mode and answer evaluation, allowing cross-turn references without sending an ever-growing raw transcript. Memory summarization is deterministic in this milestone, so it adds no extra LLM call per turn.

@@ -7,6 +7,8 @@ from app.repositories.session_repository import SessionRepository
 from app.services.adaptive_question_generator import AdaptiveQuestionGenerator
 from app.services.answer_evaluator import AnswerEvaluator
 from app.services.interview_planner import InterviewPlanner
+from app.services.knowledge_map import KnowledgeMapService
+from app.services.memory_manager import MemoryManager
 from app.services.pressure_question_generator import PressureQuestionGenerator
 from app.services.question_generator import QuestionGenerator
 from app.strategies.adaptive_policy import AdaptivePolicy
@@ -32,6 +34,8 @@ class InterviewOrchestrator:
         adaptive_policy: AdaptivePolicy | None = None,
         adaptive_question_generator: AdaptiveQuestionGenerator | None = None,
         pressure_question_generator: PressureQuestionGenerator | None = None,
+        knowledge_map_service: KnowledgeMapService | None = None,
+        memory_manager: MemoryManager | None = None,
     ) -> None:
         self.sessions = sessions or SessionRepository()
         self.curriculum = curriculum or CurriculumRepository()
@@ -55,20 +59,27 @@ class InterviewOrchestrator:
             pressure_question_generator
             or PressureQuestionGenerator(curriculum=self.curriculum)
         )
+        self.knowledge_map_service = knowledge_map_service or KnowledgeMapService()
+        self.memory_manager = memory_manager or MemoryManager()
 
     def start(self, session_id: str, candidate: CandidateProfile) -> InterviewResponse:
         if self.sessions.exists(session_id):
             raise ValueError("session_exists")
 
         questions = self.planner.build_plan(candidate)
+        knowledge_map = self.knowledge_map_service.initialize(candidate)
+        memory = self.memory_manager.initialize()
         questions[0] = self.question_generator.materialize(
             candidate=candidate,
             planned=questions[0],
+            working_memory=self.memory_manager.render_context(memory, knowledge_map),
         )
         session = InterviewSession(
             session_id=session_id,
             candidate=candidate,
             questions=questions,
+            knowledge_map=knowledge_map,
+            memory=memory,
         )
         self.sessions.save(session)
 
@@ -90,18 +101,43 @@ class InterviewOrchestrator:
 
         current = session.questions[session.current_index]
         cleaned_answer = message.strip()
+        if session.knowledge_map is None:
+            # Backward-compatible recovery for sessions created before Commit 10.
+            session.knowledge_map = self.knowledge_map_service.initialize(session.candidate)
+        if session.memory is None:
+            # Backward-compatible recovery for sessions created before Commit 11.
+            session.memory = self.memory_manager.initialize()
+
+        prior_memory_context = self.memory_manager.render_context(
+            session.memory, session.knowledge_map
+        )
         evaluation = self.answer_evaluator.evaluate(
             candidate=session.candidate,
             question=current,
             answer=cleaned_answer,
+            working_memory=prior_memory_context,
         )
-        session.turns.append(
-            InterviewTurn(
-                question_id=current.question_id,
-                question=current.text,
-                answer=cleaned_answer,
-                evaluation=evaluation,
-            )
+        turn = InterviewTurn(
+            question_id=current.question_id,
+            question=current.text,
+            answer=cleaned_answer,
+            evaluation=evaluation,
+        )
+        session.turns.append(turn)
+        session.knowledge_map = self.knowledge_map_service.update(
+            session.knowledge_map,
+            question=current,
+            evaluation=evaluation,
+        )
+        session.memory = self.memory_manager.update(
+            session.memory,
+            question=current,
+            turn=turn,
+            knowledge_map=session.knowledge_map,
+            answered_turn_count=len(session.turns),
+        )
+        working_memory = self.memory_manager.render_context(
+            session.memory, session.knowledge_map
         )
         session.current_index += 1
 
@@ -120,6 +156,7 @@ class InterviewOrchestrator:
                     question_id=(
                         f"{current.question_id}-p{session.pressure_followups_used + 1}"
                     ),
+                    working_memory=working_memory,
                 )
                 session.pressure_followups_used += 1
             else:
@@ -132,6 +169,7 @@ class InterviewOrchestrator:
                     question_id=(
                         f"{current.question_id}-a{session.adaptive_followups_used + 1}"
                     ),
+                    working_memory=working_memory,
                 )
 
             session.questions.insert(session.current_index, followup)
@@ -150,6 +188,7 @@ class InterviewOrchestrator:
         next_question = self.question_generator.materialize(
             candidate=session.candidate,
             planned=session.questions[session.current_index],
+            working_memory=working_memory,
         )
         session.questions[session.current_index] = next_question
         self.sessions.save(session)
@@ -164,8 +203,8 @@ class InterviewOrchestrator:
                 f"{session.adaptive_followups_used} adaptive follow-up(s) were used, "
                 f"including {session.pressure_followups_used} pressure challenge(s)."
             ),
-            strengths=["Completed a curriculum-grounded adaptive technical interview."],
-            gaps=["Knowledge-map aggregation and final readiness scoring are not added yet."],
-            next=["Use stored evaluations to update topic mastery and generate the readiness report."],
+            strengths=["Completed a curriculum-grounded adaptive technical interview with a dynamic knowledge map."],
+            gaps=["Final readiness-report aggregation is not added yet."],
+            next=["Use the stored knowledge map and answer evaluations to generate the final readiness report."],
         )
         return InterviewResponse(reply="Interview completed.", done=True, feedback=feedback)
