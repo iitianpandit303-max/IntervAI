@@ -45,6 +45,8 @@ def test_exact_start_and_conversation_contract() -> None:
 
     payload = response.json()
     assert payload["done"] is True
+    assert "8 answered questions" in payload["feedback"]["summary"]
+    assert "curriculum days" in payload["feedback"]["summary"]
     assert set(payload["feedback"].keys()) == {"summary", "strengths", "gaps", "next"}
 
 

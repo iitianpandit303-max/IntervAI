@@ -1,6 +1,8 @@
 from pydantic import BaseModel, Field
 
 from app.models.candidate import CandidateProfile
+from app.models.candidate_intelligence import StartingDifficulty
+from app.models.interview_plan import QuestionType
 
 
 class PlannedQuestion(BaseModel):
@@ -8,6 +10,10 @@ class PlannedQuestion(BaseModel):
     day: int
     title: str
     text: str
+    question_type: QuestionType = QuestionType.CONCEPT
+    difficulty: StartingDifficulty = StartingDifficulty.INTERMEDIATE
+    purpose: str = "curriculum coverage"
+    source_objective: str | None = None
 
 
 class InterviewTurn(BaseModel):

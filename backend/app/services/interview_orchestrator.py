@@ -1,34 +1,40 @@
 from app.models.api import FeedbackPayload, InterviewResponse
 from app.models.candidate import CandidateProfile
-from app.models.session import InterviewSession, InterviewTurn, PlannedQuestion
+from app.models.session import InterviewSession, InterviewTurn
 from app.repositories.curriculum_repository import CurriculumRepository
 from app.repositories.session_repository import SessionRepository
-
-
-MIN_QUESTIONS = 8
+from app.services.interview_planner import InterviewPlanner
+from app.strategies.coverage_policy import CoveragePolicy
 
 
 class InterviewOrchestrator:
-    """Commit-3 deterministic interview engine.
+    """Deterministic interview workflow with curriculum-aware planning.
 
-    This intentionally contains no LLM. It proves the API/session contract first.
-    Later commits will replace question selection and evaluation while preserving
-    this public contract.
+    Commit 5 still intentionally contains no LLM. Candidate intelligence now
+    determines the interview plan while CoveragePolicy guarantees the minimum
+    eight answered questions across four curriculum days.
     """
 
     def __init__(
         self,
         sessions: SessionRepository | None = None,
         curriculum: CurriculumRepository | None = None,
+        planner: InterviewPlanner | None = None,
+        coverage: CoveragePolicy | None = None,
     ) -> None:
         self.sessions = sessions or SessionRepository()
         self.curriculum = curriculum or CurriculumRepository()
+        self.coverage = coverage or CoveragePolicy()
+        self.planner = planner or InterviewPlanner(
+            curriculum=self.curriculum,
+            coverage=self.coverage,
+        )
 
     def start(self, session_id: str, candidate: CandidateProfile) -> InterviewResponse:
         if self.sessions.exists(session_id):
             raise ValueError("session_exists")
 
-        questions = self._build_mock_plan(candidate)
+        questions = self.planner.build_plan(candidate)
         session = InterviewSession(
             session_id=session_id,
             candidate=candidate,
@@ -62,7 +68,13 @@ class InterviewOrchestrator:
         )
         session.current_index += 1
 
-        if session.current_index >= len(session.questions):
+        plan_exhausted = session.current_index >= len(session.questions)
+        if plan_exhausted:
+            if not self.coverage.can_finish(session):
+                # This should be impossible because InterviewPlanner validates the
+                # plan before a session starts. Keeping the guard here prevents a
+                # future adaptive planner from accidentally violating the contract.
+                raise RuntimeError("interview_coverage_requirements_not_met")
             session.done = True
             self.sessions.save(session)
             return self._completed_response(session)
@@ -71,50 +83,16 @@ class InterviewOrchestrator:
         self.sessions.save(session)
         return InterviewResponse(reply=next_question.text, done=False)
 
-    def _build_mock_plan(self, candidate: CandidateProfile) -> list[PlannedQuestion]:
-        unique_days: list[int] = []
-        for mission in candidate.missions:
-            if mission.day not in unique_days and self.curriculum.get_day(mission.day):
-                unique_days.append(mission.day)
-
-        # Supplied candidate profiles contain enough mission days. Fall back to the
-        # curriculum only so the API remains testable with a smaller valid profile.
-        if len(unique_days) < MIN_QUESTIONS:
-            for day in self.curriculum.all_days():
-                if day.day not in unique_days:
-                    unique_days.append(day.day)
-                if len(unique_days) >= MIN_QUESTIONS:
-                    break
-
-        selected_days = unique_days[:MIN_QUESTIONS]
-        questions: list[PlannedQuestion] = []
-        for index, day_number in enumerate(selected_days, start=1):
-            day = self.curriculum.get_day(day_number)
-            objective = day.objectives[min(index - 1, len(day.objectives) - 1)]
-            text = (
-                f"Question {index}: From Day {day.day} — {day.title}: "
-                f"How would you explain or apply this objective in practice: {objective}?"
-            )
-            questions.append(
-                PlannedQuestion(
-                    question_id=f"q{index}",
-                    day=day.day,
-                    title=day.title,
-                    text=text,
-                )
-            )
-        return questions
-
     def _completed_response(self, session: InterviewSession) -> InterviewResponse:
-        covered_days = sorted({question.day for question in session.questions})
+        status = self.coverage.status(session)
         feedback = FeedbackPayload(
             summary=(
-                f"Interview completed after {len(session.turns)} answered questions "
-                f"covering {len(covered_days)} curriculum days. Adaptive scoring is "
-                "scheduled for the next feature commits."
+                f"Interview completed after {status.answered_questions} answered questions "
+                f"covering {status.unique_answered_days} curriculum days. Answer scoring and "
+                "adaptive follow-ups are intentionally deferred to the next feature commits."
             ),
-            strengths=["Completed the full mocked interview flow."],
-            gaps=["Detailed answer scoring is not enabled in this foundation milestone."],
-            next=["Enable curriculum-grounded LLM evaluation and adaptive follow-up logic."],
+            strengths=["Completed the curriculum-aware interview flow."],
+            gaps=["Detailed answer scoring is not enabled in this milestone."],
+            next=["Enable structured LLM evaluation and adaptive follow-up logic."],
         )
         return InterviewResponse(reply="Interview completed.", done=True, feedback=feedback)
