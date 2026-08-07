@@ -6,7 +6,7 @@ from app.api.interview import router as interview_router
 
 app = FastAPI(
     title="IntervAI API",
-    version="0.4.0",
+    version="0.5.0",
     description="ABTalks AI Cohort adaptive technical interview backend",
 )
 

@@ -82,3 +82,8 @@ At completion, IntervAI now aggregates the full interview into a persistent rich
 ## Commit 13 — React Interview Room
 
 The frontend now provides the full candidate-to-interview flow using the existing `POST /api/interview` contract: supplied candidate selection, conversational messages, question progress, loading/error states, a lightweight Pressure Mode visual signal, and an interview-complete handoff. No additional frontend framework or evaluator-facing API fields were introduced.
+
+
+## Commit 14 — Visual Knowledge Map and Readiness UI
+
+The React demo now reads presentation-safe interview insights from `GET /api/interview?sessionId=...` while the required evaluator contract remains unchanged on `POST /api/interview`. The GET companion route is hidden from OpenAPI and exposes only live progress, the Candidate Knowledge Map, current-question metadata, and the persisted final readiness report.

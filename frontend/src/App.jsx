@@ -11,6 +11,7 @@ export default function App() {
       <InterviewComplete
         candidate={interview.candidate}
         feedback={interview.feedback}
+        insights={interview.insights}
         questionCount={interview.questionCount}
         onReset={interview.resetInterview}
       />

@@ -14,3 +14,16 @@ export async function interviewTurn(payload) {
 
   return response.json()
 }
+
+export async function getInterviewInsights(sessionId) {
+  const response = await fetch(
+    `${API_BASE_URL}/api/interview?sessionId=${encodeURIComponent(sessionId)}`,
+  )
+
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({ detail: 'Interview insights could not be loaded.' }))
+    throw new Error(error.detail || 'Interview insights could not be loaded.')
+  }
+
+  return response.json()
+}

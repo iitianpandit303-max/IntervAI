@@ -2,6 +2,7 @@ import { useEffect, useRef } from 'react'
 import AnswerComposer from '../components/interview/AnswerComposer'
 import InterviewMessage from '../components/interview/InterviewMessage'
 import InterviewProgress from '../components/interview/InterviewProgress'
+import KnowledgeMap from '../components/knowledge/KnowledgeMap'
 
 export default function InterviewRoom({ interview }) {
   const endRef = useRef(null)
@@ -40,7 +41,10 @@ export default function InterviewRoom({ interview }) {
           <div><span>Experience</span><strong>{candidate.member.yearsExperience} years</strong></div>
           <div><span>Completed</span><strong>{candidate.signals.missionsCompleted}/31</strong></div>
           <div><span>Commit days</span><strong>{candidate.signals.commitDays}/31</strong></div>
+          <div><span>Days tested</span><strong>{interview.insights?.curriculumDaysCovered?.length || 0}</strong></div>
         </div>
+
+        <KnowledgeMap map={interview.insights?.knowledgeMap} compact />
 
         <div className="sidebar-note">
           <span>AI</span>
@@ -53,6 +57,11 @@ export default function InterviewRoom({ interview }) {
           <div>
             <p className="eyebrow">Live technical interview</p>
             <h1>AI Engineering</h1>
+            {interview.insights?.currentQuestion && (
+              <p className="question-context">
+                Day {interview.insights.currentQuestion.day} · {interview.insights.currentQuestion.questionType} · {interview.insights.currentQuestion.difficulty}
+              </p>
+            )}
           </div>
           <div className="live-status"><span /> Session active</div>
         </header>
@@ -84,6 +93,7 @@ export default function InterviewRoom({ interview }) {
         </div>
 
         {interview.error && <div className="error-banner interview-error">{interview.error}</div>}
+        {interview.insightsError && <div className="insights-warning">Live mastery view unavailable; the interview itself is still running normally.</div>}
 
         <div className="composer-wrap">
           <AnswerComposer disabled={busy} onSubmit={interview.submitAnswer} />

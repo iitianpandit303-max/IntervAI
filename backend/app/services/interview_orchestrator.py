@@ -2,6 +2,7 @@ from app.models.api import InterviewResponse
 from app.models.answer_evaluation import RecommendedAction
 from app.models.candidate import CandidateProfile
 from app.models.session import InterviewSession, InterviewTurn
+from app.models.interview_insights import CurrentQuestionInsight, InterviewInsightsResponse
 from app.repositories.curriculum_repository import CurriculumRepository
 from app.repositories.session_repository import SessionRepository
 from app.services.adaptive_question_generator import AdaptiveQuestionGenerator
@@ -199,6 +200,55 @@ class InterviewOrchestrator:
         session.questions[session.current_index] = next_question
         self.sessions.save(session)
         return InterviewResponse(reply=next_question.text, done=False)
+
+
+    def get_insights(self, session_id: str) -> InterviewInsightsResponse:
+        session = self.sessions.get(session_id)
+        if session is None:
+            raise ValueError("session_not_found")
+
+        if session.done and session.final_report is None:
+            session.final_report = self.feedback_service.build_report(session)
+            self.sessions.save(session)
+
+        question_by_id = {question.question_id: question for question in session.questions}
+        days_covered = sorted({
+            question_by_id[turn.question_id].day
+            for turn in session.turns
+            if turn.question_id in question_by_id
+        })
+
+        current = None
+        if not session.done and session.current_index < len(session.questions):
+            question = session.questions[session.current_index]
+            current = CurrentQuestionInsight(
+                questionId=question.question_id,
+                day=question.day,
+                title=question.title,
+                questionType=question.question_type.value,
+                difficulty=question.difficulty.value,
+                adaptiveAction=(
+                    question.adaptive_action.value if question.adaptive_action else None
+                ),
+                pressureChallengeType=(
+                    question.pressure_challenge_type.value
+                    if question.pressure_challenge_type
+                    else None
+                ),
+            )
+
+        return InterviewInsightsResponse(
+            sessionId=session.session_id,
+            done=session.done,
+            answeredQuestions=len(session.turns),
+            plannedQuestions=len(session.questions),
+            curriculumDaysCovered=days_covered,
+            adaptiveFollowupsUsed=session.adaptive_followups_used,
+            pressureChallengesUsed=session.pressure_followups_used,
+            currentQuestion=current,
+            knowledgeMap=session.knowledge_map,
+            finalReport=session.final_report,
+        )
 
     def _completed_response(self, session: InterviewSession) -> InterviewResponse:
         if session.final_report is None:

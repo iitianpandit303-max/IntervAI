@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { interviewTurn } from '../api/interviewApi'
+import { getInterviewInsights, interviewTurn } from '../api/interviewApi'
 import { createSessionId, detectPressureQuestion } from '../utils/interviewUi'
 
 export function useInterview() {
@@ -8,8 +8,10 @@ export function useInterview() {
   const [messages, setMessages] = useState([])
   const [questionCount, setQuestionCount] = useState(0)
   const [feedback, setFeedback] = useState(null)
+  const [insights, setInsights] = useState(null)
   const [status, setStatus] = useState('idle')
   const [error, setError] = useState('')
+  const [insightsError, setInsightsError] = useState('')
 
   const currentAssistantMessage = useMemo(
     () => [...messages].reverse().find((message) => message.role === 'assistant'),
@@ -17,8 +19,22 @@ export function useInterview() {
   )
 
   const pressureMode = Boolean(
-    currentAssistantMessage && detectPressureQuestion(currentAssistantMessage.text),
+    insights?.currentQuestion?.pressureChallengeType
+      || (currentAssistantMessage && detectPressureQuestion(currentAssistantMessage.text)),
   )
+
+  async function refreshInsights(targetSessionId) {
+    if (!targetSessionId) return null
+    try {
+      const nextInsights = await getInterviewInsights(targetSessionId)
+      setInsights(nextInsights)
+      setInsightsError('')
+      return nextInsights
+    } catch (requestError) {
+      setInsightsError(requestError.message || 'Live mastery signals are temporarily unavailable.')
+      return null
+    }
+  }
 
   async function startInterview(selectedCandidate) {
     if (!selectedCandidate || status === 'loading') return
@@ -26,11 +42,13 @@ export function useInterview() {
     const nextSessionId = createSessionId()
     setStatus('loading')
     setError('')
+    setInsightsError('')
     setCandidate(selectedCandidate)
     setSessionId(nextSessionId)
     setMessages([])
     setQuestionCount(0)
     setFeedback(null)
+    setInsights(null)
 
     try {
       const response = await interviewTurn({
@@ -48,6 +66,7 @@ export function useInterview() {
       ])
       setQuestionCount(response.done ? 0 : 1)
       setFeedback(response.feedback || null)
+      await refreshInsights(nextSessionId)
       setStatus(response.done ? 'complete' : 'active')
     } catch (requestError) {
       setError(requestError.message || 'Unable to start the interview.')
@@ -80,8 +99,10 @@ export function useInterview() {
 
       setMessages((current) => [...current, assistantMessage])
       setFeedback(response.feedback || null)
+      const latestInsights = await refreshInsights(sessionId)
 
       if (response.done) {
+        setQuestionCount(latestInsights?.answeredQuestions || questionCount)
         setStatus('complete')
       } else {
         setQuestionCount((count) => count + 1)
@@ -101,8 +122,10 @@ export function useInterview() {
     setMessages([])
     setQuestionCount(0)
     setFeedback(null)
+    setInsights(null)
     setStatus('idle')
     setError('')
+    setInsightsError('')
   }
 
   return {
@@ -111,6 +134,8 @@ export function useInterview() {
     messages,
     questionCount,
     feedback,
+    insights,
+    insightsError,
     status,
     error,
     pressureMode,
