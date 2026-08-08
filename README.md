@@ -11,6 +11,25 @@ Instead of asking a fixed list of questions, it adapts the interview based on th
 **Repository:** https://github.com/iitianpandit303-max/IntervAI
 
 ---
+## Product Walkthrough
+
+### 1. Candidate-aware interview setup
+
+IntervAI begins by analyzing the supplied candidate profile and learning history before deciding how the interview should start.
+
+![Candidate selection](docs/screenshots/candidate-selection.png)
+
+### 2. Adaptive technical interview
+
+Questions are grounded in the ABTalks curriculum while live answer evaluations change the depth, follow-ups, and engineering pressure. The Candidate Knowledge Map updates throughout the session.
+
+![Live adaptive interview](docs/screenshots/live-interview.png)
+
+### 3. Interview Readiness Report
+
+After the interview, IntervAI converts the accumulated evidence into a structured readiness report with rubric scores, strongest and weakest topics, curriculum days to revisit, and preparation guidance.
+
+![Interview readiness report](docs/screenshots/readiness-report.png)
 
 ## Why IntervAI?
 
