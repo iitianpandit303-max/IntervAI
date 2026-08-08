@@ -4,7 +4,7 @@ import InterviewMessage from '../components/interview/InterviewMessage'
 import InterviewProgress from '../components/interview/InterviewProgress'
 import KnowledgeMap from '../components/knowledge/KnowledgeMap'
 
-export default function InterviewRoom({ interview }) {
+export default function InterviewRoom({ interview, onExit }) {
   const endRef = useRef(null)
   const candidate = interview.candidate
   const busy = interview.status === 'loading'
@@ -13,6 +13,18 @@ export default function InterviewRoom({ interview }) {
     endRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' })
   }, [interview.messages, busy])
 
+  function handleExit() {
+    if (busy) return
+
+    const shouldLeave = window.confirm(
+      'Leave this interview and return to candidate selection? Your current interview progress will be cleared from this screen.',
+    )
+
+    if (shouldLeave) {
+      onExit()
+    }
+  }
+
   return (
     <main className="interview-shell">
       <aside className="interview-sidebar">
@@ -20,6 +32,15 @@ export default function InterviewRoom({ interview }) {
           <span className="brand-mark" aria-hidden="true">IA</span>
           <span><strong>IntervAI</strong><small>Interview session</small></span>
         </div>
+
+        <button
+          className="secondary-button"
+          type="button"
+          onClick={handleExit}
+          disabled={busy}
+        >
+          ← Back to candidates
+        </button>
 
         <div className="candidate-mini-card">
           <span className="candidate-avatar candidate-avatar--large">
@@ -67,6 +88,15 @@ export default function InterviewRoom({ interview }) {
         </header>
 
         <div className="mobile-progress">
+          <button
+            className="secondary-button"
+            type="button"
+            onClick={handleExit}
+            disabled={busy}
+          >
+            ← Back to candidates
+          </button>
+
           <InterviewProgress
             questionCount={interview.questionCount}
             pressureMode={interview.pressureMode}
